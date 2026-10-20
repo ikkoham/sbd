@@ -601,39 +601,39 @@ void FreeHelpers(std::vector<TaskHelpers> &helper) {
       int_counter += 4 * helper.DoublesFromBetaLen[i];
     }
     for(size_t i=0; i < nAlpha; i++) {
-      std::memcpy(helper.SinglesFromAlphaSM[i],
+      if ((helper.SinglesFromAlphaLen[i]*sizeof(size_t)) != 0) { std::memcpy(helper.SinglesFromAlphaSM[i],
 		  helper.SinglesFromAlpha[i].data(),
-		  helper.SinglesFromAlphaLen[i]*sizeof(size_t));
-      std::memcpy(helper.DoublesFromAlphaSM[i],
+		  helper.SinglesFromAlphaLen[i]*sizeof(size_t)); }
+      if ((helper.DoublesFromAlphaLen[i]*sizeof(size_t)) != 0) { std::memcpy(helper.DoublesFromAlphaSM[i],
 		  helper.DoublesFromAlpha[i].data(),
-		  helper.DoublesFromAlphaLen[i]*sizeof(size_t));
+		  helper.DoublesFromAlphaLen[i]*sizeof(size_t)); }
     }
 
     for(size_t i=0; i < nAlpha; i++) {
-      std::memcpy(helper.SinglesAlphaCrAnSM[i],
+      if ((2*helper.SinglesFromAlphaLen[i]*sizeof(int)) != 0) { std::memcpy(helper.SinglesAlphaCrAnSM[i],
 		  helper.SinglesAlphaCrAn[i].data(),
-		  2*helper.SinglesFromAlphaLen[i]*sizeof(int));
-      std::memcpy(helper.DoublesAlphaCrAnSM[i],
+		  2*helper.SinglesFromAlphaLen[i]*sizeof(int)); }
+      if ((4*helper.DoublesFromAlphaLen[i]*sizeof(int)) != 0) { std::memcpy(helper.DoublesAlphaCrAnSM[i],
 		  helper.DoublesAlphaCrAn[i].data(),
-		  4*helper.DoublesFromAlphaLen[i]*sizeof(int));
+		  4*helper.DoublesFromAlphaLen[i]*sizeof(int)); }
     }
 
     for(size_t i=0; i < nBeta; i++) {
-      std::memcpy(helper.SinglesFromBetaSM[i],
+      if ((helper.SinglesFromBetaLen[i]*sizeof(size_t)) != 0) { std::memcpy(helper.SinglesFromBetaSM[i],
 		  helper.SinglesFromBeta[i].data(),
-		  helper.SinglesFromBetaLen[i]*sizeof(size_t));
-      std::memcpy(helper.DoublesFromBetaSM[i],
+		  helper.SinglesFromBetaLen[i]*sizeof(size_t)); }
+      if ((helper.DoublesFromBetaLen[i]*sizeof(size_t)) != 0) { std::memcpy(helper.DoublesFromBetaSM[i],
 		  helper.DoublesFromBeta[i].data(),
-		  helper.DoublesFromBetaLen[i]*sizeof(size_t));
+		  helper.DoublesFromBetaLen[i]*sizeof(size_t)); }
     }
     
     for(size_t i=0; i < nBeta; i++) {
-      std::memcpy(helper.SinglesBetaCrAnSM[i],
+      if ((2*helper.SinglesFromBetaLen[i]*sizeof(int)) != 0) { std::memcpy(helper.SinglesBetaCrAnSM[i],
 		  helper.SinglesBetaCrAn[i].data(),
-		  2*helper.SinglesFromBetaLen[i]*sizeof(int));
-      std::memcpy(helper.DoublesBetaCrAnSM[i],
+		  2*helper.SinglesFromBetaLen[i]*sizeof(int)); }
+      if ((4*helper.DoublesFromBetaLen[i]*sizeof(int)) != 0) { std::memcpy(helper.DoublesBetaCrAnSM[i],
 		  helper.DoublesBetaCrAn[i].data(),
-		  4*helper.DoublesFromBetaLen[i]*sizeof(int));
+		  4*helper.DoublesFromBetaLen[i]*sizeof(int)); }
     }
 
  // Step 2: Compute offset arrays for GPU-friendly access
