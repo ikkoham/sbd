@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check a UHF TPB diag binary against exact diagonal energies in both determinant modes.
+"""Check a UHF TPB diag binary against exact energies in both determinant modes.
 
 Example (inside a GPU allocation, using a UHF binary):
   python3 check_tpb_precalculated_dets.py --diag /path/to/diag --work-dir /project/test \
@@ -22,10 +22,11 @@ CASES = {
     "odd-full-width": (6, 4),
     "fe4s4-width": (36, 20),
     "three-half-words": (36, 12),
+    "offdiagonal-chain": (9, 20),
 }
 
 
-def make_inputs(directory, norb, alpha, beta):
+def make_inputs(directory, norb, alpha, beta, chain=False):
     for name, determinants in [("AlphaDets.bin", alpha), ("BetaDets.bin", beta)]:
         (directory / name).write_bytes(
             b"".join(value.to_bytes((norb + 7) // 8, "big") for value in determinants)
@@ -34,8 +35,13 @@ def make_inputs(directory, norb, alpha, beta):
     for orbital in range(norb):
         for spin in [0, 1]:
             index = 2 * orbital + spin + 1
-            energy = (orbital + 1) if spin == 0 else (10 + orbital)
+            energy = 0.0 if chain else ((orbital + 1) if spin == 0 else (10 + orbital))
             lines.append(f" {energy:.16e} {index} {index} 0 0")
+    if chain:
+        for orbital in range(norb - 1):
+            for spin, hopping in [(0, 1.0), (1, 1.7)]:
+                i, j = 2 * orbital + spin + 1, 2 * (orbital + 1) + spin + 1
+                lines += [f" {-hopping:.16e} {i} {j} 0 0", f" {-hopping:.16e} {j} {i} 0 0"]
     lines.append(" 2.5000000000000000e-1 0 0 0 0")
     (directory / "fcidump.txt").write_text("\n".join(lines) + "\n")
 
@@ -66,10 +72,17 @@ def main():
         norb, bit_length = CASES[case]
         alpha = [3, (1 << 1) | (1 << (norb - 2)), (1 << 2) | (1 << (norb - 1))]
         beta = [3, 1 | (1 << (norb - 2)), (1 << 2) | (1 << (norb - 1))]
-        for (ia, ib), mode in itertools.product([(0, 2), (2, 0), (2, 2)], options.modes):
+        chain = case == "offdiagonal-chain"
+        if chain:
+            # 36 half determinants cross the helper permutation's 32-entry ket blocks.
+            alpha = [sum(1 << i for i in pair) for pair in itertools.combinations(range(norb), 2)]
+            beta = list(alpha)
+        references = [(0, 0)] if chain else [(0, 2), (2, 0), (2, 2)]
+        tolerance = 1e-8 if chain else 1e-10
+        for (ia, ib), mode in itertools.product(references, options.modes):
             directory = (options.work_dir / f"{case}-a{ia}-b{ib}-mode{mode}").resolve()
             directory.mkdir()  # Never replace evidence from an earlier run.
-            make_inputs(directory, norb, alpha, beta)
+            make_inputs(directory, norb, alpha, beta, chain=chain)
             command = options.launcher + [
                 str(binary),
                 "--adetfile",
@@ -83,11 +96,11 @@ def main():
                 "--bdet_comm_size",
                 "1",
                 "--block",
-                "4",
+                "40" if chain else "4",
                 "--iteration",
-                "2",
+                "10" if chain else "2",
                 "--tolerance",
-                "1e-10",
+                str(tolerance),
                 "--carryover_type",
                 "0",
                 "--rdm",
@@ -120,15 +133,19 @@ def main():
             residuals = re.findall(r"Davidson iteration .*?\(tol=([^\)]+)\)", result.stdout)
             energy = float(energies[-1]) if energies else None
             residual = float(residuals[-1]) if residuals else None
-            expected = expected_energy(alpha[ia], beta[ib], norb)
+            expected = (
+                (0.25 - 2 * (1.0 + 1.7) * sum(math.cos(k * math.pi / (norb + 1)) for k in [1, 2]))
+                if chain
+                else expected_energy(alpha[ia], beta[ib], norb)
+            )
             passed = (
                 result.returncode == 0
                 and energy is not None
                 and math.isfinite(energy)
-                and abs(energy - expected) < 1e-9
+                and math.isclose(energy, expected, rel_tol=1e-10, abs_tol=0.0)
                 and residual is not None
                 and math.isfinite(residual)
-                and residual < 1e-10
+                and residual < tolerance
             )
             record = dict(
                 case=case,
@@ -146,7 +163,7 @@ def main():
             print(json.dumps(record), flush=True)
             if not passed:
                 raise SystemExit(1)
-    print(f"PASS: {len(records)} exact-diagonal checks", flush=True)
+    print(f"PASS: {len(records)} exact-energy checks", flush=True)
 
 
 if __name__ == "__main__":
